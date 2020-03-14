@@ -24,10 +24,18 @@ func isTorrent(url string) bool {
 	return false
 }
 
-func (tc *TorrentDownloader) Parse() error {
+func newTorrent() downloader {
+	return &TorrentDownloader{}
+}
+
+func (tc *TorrentDownloader) download(task *downTask) error {
 	return nil
 }
 
-func (tc *TorrentDownloader) Download(task downTask) error {
+func (tc *TorrentDownloader) cancel(task *downTask) error {
 	return nil
+}
+
+func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
+	return nil, nil
 }

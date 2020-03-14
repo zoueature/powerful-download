@@ -24,10 +24,18 @@ func isMagnet(url string) bool {
 	return false
 }
 
-func newMagnet()  {
-
+func newMagnet() downloader {
+	return &MagnetDownloader{}
 }
 
-func (mc *MagnetDownloader) Download(task downTask) error {
+func (mc *MagnetDownloader) download(task *downTask) error {
 	return nil
+}
+
+func (mc *MagnetDownloader) cancel(task *downTask) error {
+	return nil
+}
+
+func (mc *MagnetDownloader) parseURLInfo(url string) (*downloadInfo, error) {
+	return nil, nil
 }
