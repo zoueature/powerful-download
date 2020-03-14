@@ -20,10 +20,14 @@ type TorrentDownloader struct {
 	Port int
 }
 
+func isTorrent(url string) bool {
+	return false
+}
+
 func (tc *TorrentDownloader) Parse() error {
 	return nil
 }
 
-func (tc *TorrentDownloader) Download() error {
+func (tc *TorrentDownloader) Download(task downTask) error {
 	return nil
 }

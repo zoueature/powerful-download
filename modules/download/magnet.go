@@ -20,10 +20,14 @@ type MagnetDownloader struct {
 	PORT int
 }
 
-func (mc *MagnetDownloader) Parse() error {
-	return nil
+func isMagnet(url string) bool {
+	return false
 }
 
-func (mc *MagnetDownloader) Download() error {
+func newMagnet()  {
+
+}
+
+func (mc *MagnetDownloader) Download(task downTask) error {
 	return nil
 }

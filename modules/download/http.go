@@ -20,7 +20,6 @@ import (
 )
 
 type HttpDownloader struct {
-	URL string
 }
 
 func isHttp(url string) bool {
@@ -34,16 +33,14 @@ func isHttp(url string) bool {
 	return match
 }
 
-func newHTTP(url string) Downloader {
-	return &HttpDownloader{
-		URL: url,
-	}
+func newHTTP() Downloader {
+	return &HttpDownloader{}
 }
 
-func (hc *HttpDownloader) Parse() error {
-	return nil
+func (hc *HttpDownloader) Download(task downTask) error {
+
 }
 
-func (hc *HttpDownloader) Download() error {
-	return nil
+func (hc *HttpDownloader) Cancel(task downTask) error {
+
 }

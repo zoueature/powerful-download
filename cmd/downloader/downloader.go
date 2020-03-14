@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"github.com/zoueature/powerful-download/modules/config"
 	"github.com/zoueature/powerful-download/modules/download"
 	"log"
 )
@@ -27,7 +28,7 @@ const (
 func main() {
 	var url string
 	flag.StringVar(&url, "--url", "", "下载URL")
-	downloader, err := download.NewParser(url)
+	downloader, err := download.NewParser(url, config.DownloadConfig)
 	if err != nil {
 		return
 	}
