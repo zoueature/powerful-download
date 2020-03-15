@@ -15,9 +15,9 @@
 package main
 
 import (
-	"flag"
-	"github.com/zoueature/powerful-download/modules/config"
+	_ "github.com/zoueature/powerful-download/model"
 	"github.com/zoueature/powerful-download/modules/download"
+	"github.com/zoueature/powerful-download/modules/config"
 	"log"
 )
 
@@ -26,18 +26,17 @@ const (
 )
 
 func main() {
-	var url string
-	flag.StringVar(&url, "--url", "", "下载URL")
-	downloader, err := download.NewParser(url, config.DownloadConfig)
+	client, err := download.NewClient(config.DownloadConfig)
 	if err != nil {
-		return
+		log.Fatal("初始化下载客户端失败 : " + err.Error())
 	}
-	err = downloader.Parse()
+	client.Run()
+	task, err := client.InitTask("https://qd.myapp.com/myapp/qqteam/pcqq/PCQQ2020.exe")
 	if err != nil {
-		return
+		log.Fatal("创建下载任务失败 ：" + err.Error())
 	}
-	err = downloader.Download()
+	err = client.Download(task)
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatal("下载失败：" + err.Error())
 	}
 }

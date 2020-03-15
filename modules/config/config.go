@@ -45,5 +45,3 @@ func init() {
 	}
 	DownloadConfig = download.NewConfig(threadNum, downLoadPath, maxSpeed, connectTimeout)
 }
-
-

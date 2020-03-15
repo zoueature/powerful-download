@@ -11,10 +11,14 @@ type Message struct {
 	MsgContent interface{}
 }
 
+type TaskMsg struct {
+	TaskID int
+	Message
+}
+
 const (
-	MsgTypeStop       = 1
-	MsgTypeStart      = 2
-	MsgTypeLimitSpeed = 3
-	MsgQueryStatus    = 4
-	MsgRepportStatus  = 5
+	TaskMsgStop       = 1 //取消下载任务
+	TaskMsgStart      = 2 //暂停下载任务
+	TaskMsgRedownload = 3 //重新下载
+	TaskMsgDelete     = 4 //删除任务
 )

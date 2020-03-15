@@ -70,11 +70,16 @@ func (hc *HttpDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	return info, nil
 }
 
-
 func (hc *HttpDownloader) download(task *downTask) error {
 	task.status = taskStatusDownloading
-	go task.listenSignal()
-	task.reportDownloading()
-	//todo 下载
+	task.listenSignal()
+	for i := 0; i < task.threadNum; i ++ {
+		go func() {
+			content, err := http.Get(task.URL)
+			if err != nil {
+
+			}
+		}()
+	}
 	return nil
 }
