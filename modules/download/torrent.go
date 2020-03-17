@@ -15,8 +15,10 @@
 package download
 
 import (
-	"strconv"
 	"errors"
+	"io/ioutil"
+	"os"
+	"strconv"
 )
 
 type torrentData struct {
@@ -26,14 +28,13 @@ type torrentData struct {
 }
 
 const (
-	bDecodeInt    = 'i'
-	bDecodeList   = 'l'
-	bDecodeHash   = 'd'
-	bDecodeString = 's'
-	bDecodeEnd    = 'e'
+	bDecodeInt      = 'i'
+	bDecodeList     = 'l'
+	bDecodeHash     = 'd'
+	bDecodeString   = 's'
+	bDecodeEnd      = 'e'
+	bDecodeFormated = 'f'
 )
-
-var test = "d13:announce-listll30:http://t.t789.co:2710/announceel30:http://t.t789.me:2710/announceel31:http://t.t789.vip:2710/announceee4:infod6:lengthi1263502296e4:name71:[电影天堂www.dytt89.com]局内人2：头号通缉BD中英双字.mp412:piece lengthi524288e6:pieces1:de"
 
 type TorrentDownloader struct {
 	Path string
@@ -58,32 +59,39 @@ func (tc *TorrentDownloader) cancel(task *downTask) error {
 }
 
 func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
-	//fileReader, err := os.Open(url)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//torrentContent, err := ioutil.ReadAll(fileReader)
-	//if err != nil {
-	//	return nil, err
-	//}
-	return &downloadInfo{}, nil
+	fileReader, err := os.Open(url)
+	if err != nil {
+		return nil, err
+	}
+	torrentContent, err := ioutil.ReadAll(fileReader)
+	if err != nil {
+		return nil, err
+	}
+	torrentInfo, err := bDecode(torrentContent)
+	if err != nil {
+		return nil, err
+	}
+	t := torrentInfo.(map[string]interface{})
+	info := &downloadInfo{
+		//todo format torrent info to download info
+	}
+	return info, nil
 }
 
-func bDecode(info string) (interface{}, error) {
-	torrentContent := []byte("d13:announce-listll30:http://t.t789.co:2710/announceel30:http://t.t789.me:2710/announceel31:http://t.t789.vip:2710/announceee4:infod6:lengthi1263502296e4:name71:[电影天堂www.dytt89.com]局内人2：头号通缉BD中英双字.mp412:piece lengthi524288e6:pieces1:de")
+func bDecode(torrentContent []byte) (interface{}, error) {
 	//bdecode
 	var typeStack []byte
-	var matchContainer [][]byte
+	var matchContainer []interface{}
 	var strMatcher []byte  //存储匹配的字符串长度
 	var numMatcher []byte  //存储匹配的数值
 	var startNumMatch bool //标识是否开启数值匹配
-	var tmp []interface{}
-	for index, b := range torrentContent {
-		var nowType byte
-		if len(typeStack) > 0 {
-			nowType = typeStack[len(typeStack)-1]
-		}
+	var firstType byte
+	for i := 0; i < len(torrentContent); i++ {
+		b := torrentContent[i]
 		if b == bDecodeHash || b == bDecodeList {
+			if i == 0 {
+				firstType = b
+			}
 			typeStack = append(typeStack, b)
 		} else if b == bDecodeInt {
 			startNumMatch = true
@@ -100,47 +108,72 @@ func bDecode(info string) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			str := torrentContent[index+1:index+strLen]
-			matchContainer = append(matchContainer, str)
-			strMatcher = []byte{}
+			str := torrentContent[i+1 : i+1+strLen]
+			i += strLen
+			matchContainer = append(matchContainer, string(str))
+			strMatcher = append(str[0:0])
 			typeStack = append(typeStack, bDecodeString)
 		} else if b == bDecodeEnd {
 			if startNumMatch {
 				//数值匹配
-				matchContainer = append(matchContainer, numMatcher)
+				matchContainer = append(matchContainer, string(numMatcher))
 				startNumMatch = false
-				numMatcher = []byte{}
+				numMatcher = append(numMatcher[0:0])
 				typeStack = append(typeStack, bDecodeInt)
 				continue
 			}
-			if nowType == bDecodeInt || nowType == bDecodeString {
-				tmp = append(tmp, matchContainer[len(matchContainer)-1])
-				typeStack = append(typeStack[len(typeStack)-1:])
-				matchContainer = append(matchContainer[len(matchContainer)-1:])
-			} else if nowType == bDecodeList {
-				tmp = []interface{}{tmp}
-			} else if nowType == bDecodeHash {
-				var mapKey []interface{}
-				var mapValue []interface{}
-				for index, v := range tmp {
-					if index % 2 == 0 {
-						mapKey = append(mapKey, v)
-					} else {
-						mapValue = append(mapValue, v)
-					}
+			tmp := make([]interface{}, 0)
+			var nowType byte
+			typeLen := len(typeStack)
+			var j int
+			for j = 0; j < typeLen; j ++ {
+				nowType = typeStack[len(typeStack)-j-1]
+				if nowType == bDecodeFormated || nowType == bDecodeInt || nowType == bDecodeString {
+					tmp = append(tmp, matchContainer[len(matchContainer)-j-1])
+				} else {
+					break
 				}
-				dic := make(map[string]interface{})
-				for index, key := range mapKey {
-					sKey, ok := key.(string)
-					if !ok {
-						return nil, errors.New("error")
-					}
-					dic[sKey] = mapValue[index]
-				}
-				tmp = []interface{}{dic}
 			}
+			if len(tmp) == 0 {
+				return nil, errors.New("format data error")
+			}
+
+			matchContainer = append(matchContainer[:len(matchContainer)-j])
+			typeStack = append(typeStack[:len(typeStack)-j-1])
+			var data interface{}
+			if nowType == bDecodeList {
+				data = tmp
+			} else if nowType == bDecodeHash {
+				l := len(tmp)
+				if l % 2 != 0 {
+					return nil, errors.New("format map error, item num error ")
+				}
+				m := make(map[string]interface{})
+				var key string
+				for k := l; k > 0; k -- {
+					index := k - 1
+					if k % 2 == 0 {
+						var ok bool
+						key, ok = tmp[index].(string)
+						if !ok {
+							return nil, errors.New("format map error, trans to key string erro ")
+						}
+					} else {
+						m[key] = tmp[index]
+					}
+				}
+				data = m
+			}
+			matchContainer = append(matchContainer, data)
+			typeStack = append(typeStack, bDecodeFormated)
 		}
 	}
-	return tmp, nil
+	if len(matchContainer) < 0 {
+		return nil, errors.New("error,  bdecode empty")
+	}
+	if firstType == bDecodeHash {
+		return matchContainer[0], nil
+	}
+	return matchContainer, nil
 }
 
