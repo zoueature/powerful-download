@@ -71,7 +71,7 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := torrentInfo.(map[string]interface{})
+	_ = torrentInfo.(map[string]interface{})
 	info := &downloadInfo{
 		//todo format torrent info to download info
 	}
