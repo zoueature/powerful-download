@@ -24,9 +24,12 @@ import (
 )
 
 type torrentData struct {
-	dataType byte
-	data     interface{}
-	child    *torrentData
+	mainAnnounce string
+	announces   []string
+	infoHash    []byte
+	fileName    string
+	length      int64
+	pieces      [][20]byte
 }
 
 const (
@@ -73,7 +76,57 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = torrentInfo.(map[string]interface{})
+	td := torrentData{}
+	ti := torrentInfo.(map[string]interface{})
+	shaClient := sha1.New()
+	shaClient.Write(infoContent)
+	td.infoHash = shaClient.Sum(nil)
+	mainAnnounce, ok := ti["announce"]
+	if ok {
+		td.mainAnnounce = mainAnnounce.(string)
+	}
+	announces, ok := ti["announce-list"]
+	if ok {
+		list, ok := announces.([]interface{})
+		if ok {
+			announceList := make([]string, len(list))
+			for _, v := range list {
+				vl, ok := v.([]interface{})
+				if ok {
+					if vl[0] != nil {
+						announce, ok := vl[0].(string)
+						if ok {
+							announceList = append(announceList, announce)
+						}
+					}
+					continue
+				}
+				vs, ok := v.(string)
+				if ok && vs != "" {
+					announceList = append(announceList, vs)
+				}
+			}
+			td.announces = announceList
+		}
+	}
+	nameI, ok := ti["name"]
+	if ok {
+		name, ok := nameI.(string)
+		if ok {
+			td.fileName = name
+		}
+	}
+	lengthI, ok := ti["length"]
+	if ok {
+		lengthStr, ok := lengthI.(string)
+		if ok {
+			length, err := strconv.ParseInt(lengthStr, 10, 64)
+			if ere != nil {
+				return nil, err
+			}
+			td.length = length
+		}
+	}
 	info := &downloadInfo{
 		//todo format torrent info to download info
 	}
@@ -82,7 +135,7 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if size != len(infoContent){
+	if size != len(infoContent) {
 		return nil, errors.New("check info hash error, write size not match")
 	}
 	infoHash := fmt.Sprintf("%x", h.Sum(nil))
@@ -108,17 +161,17 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 			typeStack = append(typeStack, b)
 			if len(matchContainer) > 0 && matchInfoLevel == 0 {
 				v, ok := matchContainer[len(matchContainer)-1].(string)
-				if ok && v == "info"{
-					matchInfoLevel ++
+				if ok && v == "info" {
+					matchInfoLevel++
 					infoStartIndex = i
 				}
-			} else if  matchInfoLevel > 0 {
-				matchInfoLevel ++
+			} else if matchInfoLevel > 0 {
+				matchInfoLevel++
 			}
 		} else if b == bDecodeInt {
 			startNumMatch = true
-			if  matchInfoLevel > 0 {
-				matchInfoLevel ++
+			if matchInfoLevel > 0 {
+				matchInfoLevel++
 			}
 		} else if b >= '0' && b <= '9' {
 			if startNumMatch {
@@ -133,7 +186,7 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 			if err != nil {
 				return nil, nil, err
 			}
-			str := torrentContent[i+1:i+1+strLen]
+			str := torrentContent[i+1 : i+1+strLen]
 			i += strLen
 			matchContainer = append(matchContainer, string(str))
 			strMatcher = append(strMatcher[0:0])
@@ -141,9 +194,9 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 		} else if b == bDecodeEnd {
 			if matchInfoLevel == 1 {
 				infoEndIndex = i + 1
-				matchInfoLevel --
+				matchInfoLevel--
 			} else if matchInfoLevel > 0 {
-				matchInfoLevel --
+				matchInfoLevel--
 			}
 			if startNumMatch {
 				//数值匹配
@@ -157,7 +210,7 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 			var nowType byte
 			typeLen := len(typeStack)
 			var j int
-			for j = 0; j < typeLen; j ++ {
+			for j = 0; j < typeLen; j++ {
 				nowType = typeStack[len(typeStack)-j-1]
 				if nowType == bDecodeFormated || nowType == bDecodeInt || nowType == bDecodeString {
 					tmp = append(tmp, matchContainer[len(matchContainer)-j-1])
@@ -176,14 +229,14 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 				data = tmp
 			} else if nowType == bDecodeHash {
 				l := len(tmp)
-				if l % 2 != 0 {
+				if l%2 != 0 {
 					return nil, nil, errors.New("format map error, item num error ")
 				}
 				m := make(map[string]interface{})
 				var key string
-				for k := l; k > 0; k -- {
+				for k := l; k > 0; k-- {
 					index := k - 1
-					if k % 2 == 0 {
+					if k%2 == 0 {
 						var ok bool
 						key, ok = tmp[index].(string)
 						if !ok {
@@ -208,4 +261,3 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 	}
 	return matchContainer, info, nil
 }
-
