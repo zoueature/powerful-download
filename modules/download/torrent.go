@@ -15,7 +15,9 @@
 package download
 
 import (
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -67,7 +69,7 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	torrentInfo, err := bDecode(torrentContent)
+	torrentInfo, infoContent, err := bDecode(torrentContent)
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +77,20 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 	info := &downloadInfo{
 		//todo format torrent info to download info
 	}
+	h := sha1.New()
+	size, err := h.Write(infoContent)
+	if err != nil {
+		return nil, err
+	}
+	if size != len(infoContent){
+		return nil, errors.New("check info hash error, write size not match")
+	}
+	infoHash := fmt.Sprintf("%x", h.Sum(nil))
+	info.infoHash = infoHash
 	return info, nil
 }
 
-func bDecode(torrentContent []byte) (interface{}, error) {
+func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 	//bdecode
 	var typeStack []byte
 	var matchContainer []interface{}
@@ -86,6 +98,7 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 	var numMatcher []byte  //存储匹配的数值
 	var startNumMatch bool //标识是否开启数值匹配
 	var firstType byte
+	var matchInfoLevel, infoStartIndex, infoEndIndex int
 	for i := 0; i < len(torrentContent); i++ {
 		b := torrentContent[i]
 		if b == bDecodeHash || b == bDecodeList {
@@ -93,8 +106,20 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 				firstType = b
 			}
 			typeStack = append(typeStack, b)
+			if len(matchContainer) > 0 && matchInfoLevel == 0 {
+				v, ok := matchContainer[len(matchContainer)-1].(string)
+				if ok && v == "info"{
+					matchInfoLevel ++
+					infoStartIndex = i
+				}
+			} else if  matchInfoLevel > 0 {
+				matchInfoLevel ++
+			}
 		} else if b == bDecodeInt {
 			startNumMatch = true
+			if  matchInfoLevel > 0 {
+				matchInfoLevel ++
+			}
 		} else if b >= '0' && b <= '9' {
 			if startNumMatch {
 				numMatcher = append(numMatcher, b)
@@ -106,7 +131,7 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 			strLenStr := string(strMatcher)
 			strLen, err := strconv.Atoi(strLenStr)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			str := torrentContent[i+1 : i+1+strLen]
 			i += strLen
@@ -114,6 +139,12 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 			strMatcher = append(str[0:0])
 			typeStack = append(typeStack, bDecodeString)
 		} else if b == bDecodeEnd {
+			if matchInfoLevel == 1 {
+				infoEndIndex = i + 1
+				matchInfoLevel --
+			} else if matchInfoLevel > 0 {
+				matchInfoLevel --
+			}
 			if startNumMatch {
 				//数值匹配
 				matchContainer = append(matchContainer, string(numMatcher))
@@ -135,7 +166,7 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 				}
 			}
 			if len(tmp) == 0 {
-				return nil, errors.New("format data error")
+				return nil, nil, errors.New("format data error")
 			}
 
 			matchContainer = append(matchContainer[:len(matchContainer)-j])
@@ -146,7 +177,7 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 			} else if nowType == bDecodeHash {
 				l := len(tmp)
 				if l % 2 != 0 {
-					return nil, errors.New("format map error, item num error ")
+					return nil, nil, errors.New("format map error, item num error ")
 				}
 				m := make(map[string]interface{})
 				var key string
@@ -156,7 +187,7 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 						var ok bool
 						key, ok = tmp[index].(string)
 						if !ok {
-							return nil, errors.New("format map error, trans to key string erro ")
+							return nil, nil, errors.New("format map error, trans to key string error ")
 						}
 					} else {
 						m[key] = tmp[index]
@@ -169,11 +200,12 @@ func bDecode(torrentContent []byte) (interface{}, error) {
 		}
 	}
 	if len(matchContainer) < 0 {
-		return nil, errors.New("error,  bdecode empty")
+		return nil, nil, errors.New("error,  bdecode empty")
 	}
+	info := torrentContent[infoStartIndex:infoEndIndex]
 	if firstType == bDecodeHash {
-		return matchContainer[0], nil
+		return matchContainer[0], info, nil
 	}
-	return matchContainer, nil
+	return matchContainer, info, nil
 }
 

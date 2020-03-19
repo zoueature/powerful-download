@@ -12,4 +12,5 @@ type downloadInfo struct {
 	IP                  string //服务器IP
 	PORT                int    //服务器端口
 	supportPartDownload bool   //是否支持分段下载
+	infoHash            string
 }
