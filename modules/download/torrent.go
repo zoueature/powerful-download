@@ -133,10 +133,10 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 			if err != nil {
 				return nil, nil, err
 			}
-			str := torrentContent[i+1 : i+1+strLen]
+			str := torrentContent[i+1:i+1+strLen]
 			i += strLen
 			matchContainer = append(matchContainer, string(str))
-			strMatcher = append(str[0:0])
+			strMatcher = append(strMatcher[0:0])
 			typeStack = append(typeStack, bDecodeString)
 		} else if b == bDecodeEnd {
 			if matchInfoLevel == 1 {
