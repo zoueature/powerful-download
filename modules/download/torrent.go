@@ -19,26 +19,37 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strconv"
+	"encoding/binary"
 )
 
 type torrentData struct {
 	mainAnnounce string
-	announces   []string
-	infoHash    []byte
-	fileName    string
-	length      int64
-	pieces      [][20]byte
+	announces    []string
+	infoHash     []byte
+	fileName     string
+	length       int64
+	pieces       [][20]byte
+}
+
+type peer struct {
+	ip   net.IP
+	port uint16
 }
 
 const (
+	//bdecode
 	bDecodeInt      = 'i'
 	bDecodeList     = 'l'
 	bDecodeHash     = 'd'
 	bDecodeString   = 's'
 	bDecodeEnd      = 'e'
 	bDecodeFormated = 'f'
+
+	//peer
+	peerPerLength = 6 // 4ip+2port
 )
 
 type TorrentDownloader struct {
@@ -121,7 +132,7 @@ func (tc *TorrentDownloader) parseURLInfo(url string) (*downloadInfo, error) {
 		lengthStr, ok := lengthI.(string)
 		if ok {
 			length, err := strconv.ParseInt(lengthStr, 10, 64)
-			if ere != nil {
+			if err != nil {
 				return nil, err
 			}
 			td.length = length
@@ -260,4 +271,22 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 		return matchContainer[0], info, nil
 	}
 	return matchContainer, info, nil
+}
+
+func peerDecode(peers []byte) ([]peer, error){
+	if len(peers)%6 != 0 {
+		return nil, errors.New("error byte num")
+	}
+	ls := make([]peer, 0, len(peers)%6)
+	for i :=0; i < len(peers) / 6; i ++ {
+		startIndex := i * peerPerLength
+		endIndex := (i + 1) * peerPerLength
+		p := peers[startIndex:endIndex]
+		tmp := peer{}
+		tmp.ip = p[:4]
+		port := binary.BigEndian.Uint16(p[4:])
+		tmp.port = port
+		ls = append(ls, tmp)
+	}
+	return ls, nil
 }
