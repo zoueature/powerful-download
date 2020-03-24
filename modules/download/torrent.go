@@ -16,13 +16,13 @@ package download
 
 import (
 	"crypto/sha1"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
-	"encoding/binary"
 )
 
 type torrentData struct {
@@ -36,7 +36,7 @@ type torrentData struct {
 
 type peer struct {
 	ip   net.IP
-	port uint16
+	port int
 }
 
 const (
@@ -229,9 +229,9 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 					break
 				}
 			}
-			if len(tmp) == 0 {
-				return nil, nil, errors.New("format data error")
-			}
+			//if len(tmp) == 0 {
+			//	return nil, nil, errors.New("format data error")
+			//}
 
 			matchContainer = append(matchContainer[:len(matchContainer)-j])
 			typeStack = append(typeStack[:len(typeStack)-j-1])
@@ -273,19 +273,22 @@ func bDecode(torrentContent []byte) (interface{}, []byte, error) {
 	return matchContainer, info, nil
 }
 
-func peerDecode(peers []byte) ([]peer, error){
-	if len(peers)%6 != 0 {
+func peerDecode(peers []byte) ([]peer, error) {
+	const peerLen = 6
+	if len(peers)%peerLen != 0 {
 		return nil, errors.New("error byte num")
 	}
-	ls := make([]peer, 0, len(peers)%6)
-	for i :=0; i < len(peers) / 6; i ++ {
+	ls := make([]peer, 0, len(peers)%peerLen)
+	for i := 0; i < len(peers)/peerLen; i++ {
 		startIndex := i * peerPerLength
 		endIndex := (i + 1) * peerPerLength
 		p := peers[startIndex:endIndex]
 		tmp := peer{}
-		tmp.ip = p[:4]
-		port := binary.BigEndian.Uint16(p[4:])
-		tmp.port = port
+		ip := make([]byte, 4)
+		//tmp.ip = net.IP(p[:4])
+		copy(ip, p[:4])
+		tmp.ip = ip
+		tmp.port = int(binary.BigEndian.Uint16(p[4:]))
 		ls = append(ls, tmp)
 	}
 	return ls, nil
