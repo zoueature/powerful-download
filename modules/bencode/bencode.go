@@ -10,7 +10,6 @@ import (
 	"errors"
 	"reflect"
 	"strconv"
-	"fmt"
 )
 
 const (
@@ -160,13 +159,13 @@ func BDecode(encodeStr []byte, container interface{}) error {
 	if !ok {
 		return errors.New("decode to map error")
 	}
-	fillStruct(bInfoMap, reflect.TypeOf(container).Elem(), &elm)
-	return nil
+	err = fillStruct(bInfoMap, reflect.TypeOf(container).Elem(), &elm)
+	return err
 }
 
 func fillStruct(data map[string]interface{}, sct reflect.Type, scv *reflect.Value) error {
 	fieldNum := scv.NumField()
-	for i :=0; i < fieldNum; i ++ {
+	for i := 0; i < fieldNum; i++ {
 		fieldType := sct.Field(i)
 		//if fieldType.Anonymous {
 		//	continue
@@ -184,7 +183,7 @@ func fillStruct(data map[string]interface{}, sct reflect.Type, scv *reflect.Valu
 		case reflect.Struct:
 			fieldValueMap, succ := fieldData.(map[string]interface{})
 			if !succ {
-				return errors.New("struct type match error")
+				return errors.New(fieldType.Name + " struct type match error")
 			}
 			err := fillStruct(fieldValueMap, fieldType.Type, &fieldValue)
 			if err != nil {
@@ -193,22 +192,22 @@ func fillStruct(data map[string]interface{}, sct reflect.Type, scv *reflect.Valu
 		case reflect.String:
 			fieldValueString, succ := fieldData.(string)
 			if !succ {
-				return errors.New("string type match error")
+				return errors.New(fieldType.Name + " string type match error")
 			}
 			fieldValue.SetString(fieldValueString)
 		case reflect.Int,
-		reflect.Int8,
-		reflect.Int16,
-		reflect.Int32,
-		reflect.Int64,
-		reflect.Uint,
-		reflect.Uint8,
-		reflect.Uint16,
-		reflect.Uint32,
-		reflect.Uint64:
+			reflect.Int8,
+			reflect.Int16,
+			reflect.Int32,
+			reflect.Int64,
+			reflect.Uint,
+			reflect.Uint8,
+			reflect.Uint16,
+			reflect.Uint32,
+			reflect.Uint64:
 			fieldValueString, succ := fieldData.(string)
 			if !succ {
-				return errors.New("string type match error")
+				return errors.New(fieldType.Name + " integer type match error")
 			}
 			fieldValuFloat, err := strconv.ParseFloat(fieldValueString, 64)
 			if err != nil {
@@ -219,17 +218,18 @@ func fillStruct(data map[string]interface{}, sct reflect.Type, scv *reflect.Valu
 		case reflect.Slice:
 			fieldValueSlice, succ := fieldData.([]interface{})
 			if !succ {
-				return errors.New("slice type match error")
+				return errors.New(fieldType.Name + " slice type match error")
 			}
 			reflectValue := reflect.MakeSlice(fieldType.Type, 0, len(fieldValueSlice))
 			err := fillSlice(fieldValueSlice, fieldType.Type, &reflectValue)
-			fmt.Println(fieldValue.Interface())
 			if err != nil {
 				return err
 			}
 			fieldValue.Set(reflectValue)
+		case reflect.Interface:
+			fieldValue.Set(reflect.ValueOf(fieldData))
 		default:
-			return errors.New("error, unknow type")
+			return errors.New(fieldType.Name + " error, unknow type")
 		}
 	}
 	return nil
@@ -293,6 +293,10 @@ func fillSlice(data []interface{}, t reflect.Type, value *reflect.Value) error {
 			} else {
 				return errors.New("match to string error")
 			}
+		}
+	case reflect.Interface:
+		for _, v := range data {
+			*value = reflect.Append(*value, reflect.ValueOf(v))
 		}
 	default:
 		return errors.New("unknow type")
