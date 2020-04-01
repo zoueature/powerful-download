@@ -303,3 +303,79 @@ func fillSlice(data []interface{}, t reflect.Type, value *reflect.Value) error {
 	}
 	return nil
 }
+
+func BEncode(data interface{}) (string, error) {
+	dataValue := reflect.ValueOf(data)
+	if dataValue.Kind() == reflect.Ptr {
+		dataValue = dataValue.Elem()
+	}
+	if dataValue.Kind() != reflect.Struct {
+		return "", errors.New("only support struct")
+	}
+	str, err := bEncodeStruct(reflect.TypeOf(data), dataValue)
+	return str, err
+}
+
+func bEncodeStruct(t reflect.Type, v reflect.Value) (string, error) {
+	encodeStr := "d"
+	var str string
+	var err error
+	fieldNum := v.NumField()
+	for i := 0; i < fieldNum; i++ {
+		field := v.Field(i)
+		switch field.Type().Kind() {
+		case reflect.Slice:
+			str, err = bEncodeSlice(field.Type(), field)
+			if err != nil {
+				return "", err
+			}
+		case reflect.Struct:
+			str, err = bEncodeStruct(field.Type(), field)
+			if err != nil {
+				return "", err
+			}
+		case reflect.String, reflect.Interface:
+			str, err = bEncodeString(field.Type(), field)
+			if err != nil {
+				return "", err
+			}
+		case reflect.Int:
+			str, err = bEncodeInt(field.Type(), field)
+			if err != nil {
+				return "", err
+			}
+		}
+		encodeStr += str
+	}
+	encodeStr += "e"
+	return encodeStr, nil
+}
+
+func bEncodeSlice(t reflect.Type, v reflect.Value) (string, error) {
+	encodeStr := "l"
+	var str string
+	var err error
+	switch t.Elem().Kind() {
+	case reflect.String, reflect.Interface:
+		str, err = bEncodeString()
+	}
+	return "", nil
+}
+
+func bEncodeString(t reflect.Type, v reflect.Value) (string, error) {
+	s, ok := v.Interface().(string)
+	if !ok {
+		return "", errors.New("not string")
+	}
+	length := len(s)
+	return strconv.Itoa(length) + ":" + s, nil
+}
+
+func bEncodeInt(t reflect.Type, v reflect.Value) (string, error) {
+	i, ok := v.Interface().(float64)
+	if !ok {
+		return "", errors.New("not a number")
+	}
+	s := strconv.FormatFloat(i, 'e', 0, 10)
+	return "i" + s + "e", nil
+}
