@@ -16,11 +16,11 @@ package download
 
 import (
 	"errors"
+	"fmt"
 	"github.com/zoueature/powerful-download/model"
 	"github.com/zoueature/powerful-download/modules/msg"
 	"log"
 	"time"
-	"fmt"
 )
 
 type taskStatus int

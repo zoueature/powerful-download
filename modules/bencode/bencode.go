@@ -8,9 +8,9 @@ package bencode
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
-	"fmt"
 )
 
 const (
@@ -160,7 +160,7 @@ func BDecode(encodeStr []byte, container interface{}) error {
 	if !ok {
 		return errors.New("decode to map error")
 	}
-	fillStruct(bInfoMap, reflect.TypeOf(container).Elem(), &elm)
+	_ = fillStruct(bInfoMap, reflect.TypeOf(container).Elem(), &elm)
 	return nil
 }
 

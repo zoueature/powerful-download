@@ -75,10 +75,10 @@ func (hc *HttpDownloader) download(task *downTask) error {
 	task.listenSignal()
 	for i := 0; i < task.threadNum; i ++ {
 		go func() {
-			content, err := http.Get(task.URL)
-			if err != nil {
-
-			}
+			//content, err := http.Get(task.URL)
+			//if err != nil {
+			//
+			//}
 		}()
 	}
 	return nil

@@ -21,7 +21,7 @@ import (
 )
 
 func TestBDecode(t *testing.T)  {
-	f, _ := os.Open("./test.torrent")
+	f, _ := os.Open("./1.torrent")
 	content, _ := ioutil.ReadAll(f)
 	result, info, err := bDecode(content)
 	if err != nil {
@@ -55,8 +55,13 @@ func TestBDecode(t *testing.T)  {
 		base.RawQuery = params.Encode()
 		requestUrl := base.String()
 		httpClient := http.Client{}
+		httpClient.Timeout = 7 * time.Second
 		request, _ := http.NewRequest(http.MethodGet, requestUrl, nil)
 		response , err := httpClient.Do(request)
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
 		responseStr, _ := ioutil.ReadAll(response.Body)
 		responseInfo, _, err := bDecode(responseStr)
 		if err != nil {

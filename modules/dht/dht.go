@@ -14,6 +14,23 @@
 
 package dht
 
-func init() {
+import "net"
 
+type DHT struct {
+	conn   net.Conn
+	config DHTConfig
+}
+
+type DHTConfig struct {
+	PrimeNodes []string
+}
+
+func NewStandardConfig() *DHTConfig {
+	return &DHTConfig{
+		PrimeNodes: []string{
+			"router.bittorrent.com:6881",
+			"router.utorrent.com:6881",
+			"dht.transmissionbt.com:6881",
+		},
+	}
 }
